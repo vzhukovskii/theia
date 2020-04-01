@@ -297,7 +297,7 @@ export class ScmAmendComponent extends React.Component<ScmAmendComponentProps, S
                 {
                     this.state.lastCommit ?
                         <div>
-                            <div id='lastCommit' className='changesContainer'>
+                            <div id='lastCommit' className='theia-ScmAmend'>
                                 <div className='theia-header scm-theia-header'>
                                     HEAD Commit
                                 </div>
