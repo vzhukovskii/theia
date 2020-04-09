@@ -19,6 +19,7 @@ import { AbstractViewContribution } from '@theia/core/lib/browser/shell/view-con
 import { Widget, KeybindingRegistry, KeybindingContext, ApplicationShell } from '@theia/core/lib/browser';
 import { OUTPUT_WIDGET_KIND, OutputWidget } from './output-widget';
 import { Command, CommandRegistry } from '@theia/core/lib/common';
+import { OutputChannelManager } from '../common/output-channel';
 
 export namespace OutputCommands {
 
@@ -35,6 +36,12 @@ export namespace OutputCommands {
         id: 'output:selectAll',
         category: OUTPUT_CATEGORY,
         label: 'Select All'
+    };
+
+    export const SCROLL_LOCK: Command = {
+        id: 'output:scrollLock',
+        label: 'Toggle Auto Scroll in Selected Channel',
+        category: OUTPUT_CATEGORY
     };
 
 }
@@ -64,6 +71,9 @@ export class OutputContribution extends AbstractViewContribution<OutputWidget> {
     @inject(OutputWidgetIsActiveContext)
     protected readonly outputIsActiveContext: OutputWidgetIsActiveContext;
 
+    @inject(OutputChannelManager)
+    protected readonly outputChannelManager: OutputChannelManager;
+
     constructor() {
         super({
             widgetId: OUTPUT_WIDGET_KIND,
@@ -87,6 +97,11 @@ export class OutputContribution extends AbstractViewContribution<OutputWidget> {
             isEnabled: () => this.outputIsActiveContext.isEnabled(),
             isVisible: () => this.outputIsActiveContext.isEnabled(),
             execute: widget => this.withWidget(widget, outputWidget => outputWidget.selectAll())
+        });
+        commands.registerCommand(OutputCommands.SCROLL_LOCK, {
+            isEnabled: () => this.outputIsActiveContext.isEnabled(),
+            isVisible: () => this.outputIsActiveContext.isEnabled(),
+            execute: () => this.outputChannelManager.toggleScrollLock()
         });
     }
 

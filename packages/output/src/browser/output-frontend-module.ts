@@ -16,7 +16,7 @@
 
 import { ContainerModule } from 'inversify';
 import { OutputWidget, OUTPUT_WIDGET_KIND } from './output-widget';
-import { WidgetFactory, bindViewContribution, KeybindingContext } from '@theia/core/lib/browser';
+import { WidgetFactory, bindViewContribution, KeybindingContext, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { OutputContribution, OutputWidgetIsActiveContext } from './output-contribution';
 import { OutputToolbarContribution } from './output-toolbar-contribution';
 import { OutputChannelManager } from '../common/output-channel';
@@ -27,6 +27,7 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bindOutputPreferences(bind);
     bind(OutputWidget).toSelf();
     bind(OutputChannelManager).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(OutputChannelManager);
 
     bind(WidgetFactory).toDynamicValue(context => ({
         id: OUTPUT_WIDGET_KIND,

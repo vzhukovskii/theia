@@ -14,13 +14,14 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { Emitter, Event } from '@theia/core';
 import { injectable, inject, postConstruct } from 'inversify';
+import { Emitter, Event, Disposable, DisposableCollection } from '@theia/core';
+import { StorageService, FrontendApplicationContribution } from '@theia/core/lib/browser';
+import { Deferred } from '@theia/core/lib/common/promise-util';
 import { OutputPreferences } from './output-preferences';
-import { Disposable, DisposableCollection } from 'vscode-ws-jsonrpc';
 
 @injectable()
-export class OutputChannelManager implements Disposable {
+export class OutputChannelManager implements FrontendApplicationContribution, Disposable {
     protected readonly channels = new Map<string, OutputChannel>();
     protected selectedChannelValue: OutputChannel | undefined;
 
@@ -28,18 +29,51 @@ export class OutputChannelManager implements Disposable {
     protected readonly channelAddedEmitter = new Emitter<OutputChannel>();
     protected readonly selectedChannelEmitter: Emitter<void> = new Emitter<void>();
     protected readonly listOrSelectionEmitter: Emitter<void> = new Emitter<void>();
+    protected readonly channelLockedEmitter = new Emitter<OutputChannel>();
     readonly onChannelDelete = this.channelDeleteEmitter.event;
     readonly onChannelAdded = this.channelAddedEmitter.event;
     readonly onSelectedChannelChange = this.selectedChannelEmitter.event;
     readonly onListOrSelectionChange = this.listOrSelectionEmitter.event;
+    readonly onLockChange = this.channelLockedEmitter.event;
 
     protected toDispose = new DisposableCollection();
+    protected toDisposeOnChannelDeletion = new Map<string, DisposableCollection>();
+    protected lockedChannels = new Set<string>();
+    protected restoredState = new Deferred<void>();
 
     @inject(OutputPreferences)
     protected readonly preferences: OutputPreferences;
 
+    @inject(StorageService)
+    protected readonly storageService: StorageService;
+
+    onStart(): void {
+        this.storageService.getData<Array<string>>('theia:output-channel-manager:lockedChannels')
+            .then(lockedChannels => {
+                if (Array.isArray(lockedChannels)) {
+                    for (const channelName of lockedChannels) {
+                        this.lockedChannels.add(channelName);
+                    }
+                }
+                this.restoredState.resolve();
+            });
+    }
+
+    onStop(): void {
+        const lockedChannels = Array.from(this.channels.values()).filter(({ isLocked }) => isLocked).map(({ name }) => name);
+        this.storageService.setData('theia:output-channel-manager:lockedChannels', lockedChannels);
+    }
+
     @postConstruct()
-    protected init(): void {
+    protected async init(): Promise<void> {
+        await this.restoredState.promise;
+        this.toDispose.pushAll([
+            this.channelDeleteEmitter,
+            this.channelAddedEmitter,
+            this.selectedChannelEmitter,
+            this.listOrSelectionEmitter,
+            this.channelLockedEmitter
+        ]);
         this.getChannels().forEach(this.registerListener.bind(this));
         this.toDispose.push(this.onChannelAdded(channel => {
             this.listOrSelectionEmitter.fire(undefined);
@@ -54,16 +88,29 @@ export class OutputChannelManager implements Disposable {
     }
 
     protected registerListener(outputChannel: OutputChannel): void {
+        const { name } = outputChannel;
         if (!this.selectedChannel) {
             this.selectedChannel = outputChannel;
         }
-        this.toDispose.push(outputChannel.onVisibilityChange(event => {
+        let toDispose = this.toDisposeOnChannelDeletion.get(name);
+        if (!toDispose) {
+            toDispose = new DisposableCollection();
+            this.toDisposeOnChannelDeletion.set(name, toDispose);
+        }
+        toDispose.push(outputChannel);
+        toDispose.push(outputChannel.onVisibilityChange(event => {
             if (event.visible) {
                 this.selectedChannel = outputChannel;
             } else if (outputChannel === this.selectedChannel) {
                 this.selectedChannel = this.getVisibleChannels()[0];
             }
         }));
+        toDispose.push(outputChannel.onLockChange(() => this.channelLockedEmitter.fire(outputChannel)));
+        if (this.lockedChannels.has(name)) {
+            if (!outputChannel.isLocked) {
+                outputChannel.toggleLocked();
+            }
+        }
     }
 
     getChannel(name: string): OutputChannel {
@@ -78,7 +125,16 @@ export class OutputChannelManager implements Disposable {
     }
 
     deleteChannel(name: string): void {
+        const existing = this.channels.get(name);
+        if (!existing) {
+            console.warn(`Could not delete channel '${name}'. The channel does not exist.`);
+            return;
+        }
         this.channels.delete(name);
+        const toDispose = this.toDisposeOnChannelDeletion.get(name);
+        if (toDispose) {
+            toDispose.dispose();
+        }
         this.channelDeleteEmitter.fire({ channelName: name });
     }
 
@@ -90,7 +146,7 @@ export class OutputChannelManager implements Disposable {
         return this.getChannels().filter(channel => channel.isVisible);
     }
 
-    public dispose(): void {
+    dispose(): void {
         this.toDispose.dispose();
     }
 
@@ -103,30 +159,35 @@ export class OutputChannelManager implements Disposable {
         this.selectedChannelEmitter.fire(undefined);
         this.listOrSelectionEmitter.fire(undefined);
     }
+
+    toggleScrollLock(channel: OutputChannel | undefined = this.selectedChannel): void {
+        if (channel) {
+            channel.toggleLocked();
+        }
+    }
 }
 
-export enum OutputChannelSeverity {
-    Error = 1,
-    Warning = 2,
-    Info = 3
-}
-export interface OutputChannelLine {
-    text: string;
-    severity?: OutputChannelSeverity;
-}
-
-export class OutputChannel {
+export class OutputChannel implements Disposable {
 
     private readonly visibilityChangeEmitter = new Emitter<{ visible: boolean }>();
+    private readonly lockChangeEmitter = new Emitter<{ locked: boolean }>();
     private readonly contentChangeEmitter = new Emitter<OutputChannel>();
-    private lines: OutputChannelLine[] = [];
-    private currentLine: OutputChannelLine | undefined;
+    private readonly toDispose = new DisposableCollection(
+        this.visibilityChangeEmitter,
+        this.lockChangeEmitter,
+        this.contentChangeEmitter
+    );
+
+    private lines: string[] = [];
+    private currentLine: string | undefined;
     private visible: boolean = true;
+    private locked: boolean = false;
 
     readonly onVisibilityChange: Event<{ visible: boolean }> = this.visibilityChangeEmitter.event;
+    readonly onLockChange: Event<{ locked: boolean }> = this.lockChangeEmitter.event;
     readonly onContentChange: Event<OutputChannel> = this.contentChangeEmitter.event;
 
-    constructor(readonly name: string, readonly preferences: OutputPreferences) { }
+    constructor(readonly name: string, protected readonly preferences: OutputPreferences) { }
 
     append(value: string): void {
         if (this.currentLine === undefined) {
@@ -174,4 +235,18 @@ export class OutputChannel {
     get isVisible(): boolean {
         return this.visible;
     }
+
+    toggleLocked(): void {
+        this.locked = !this.locked;
+        this.lockChangeEmitter.fire({ locked: this.isLocked });
+    }
+
+    get isLocked(): boolean {
+        return this.locked;
+    }
+
+    dispose(): void {
+        this.toDispose.dispose();
+    }
+
 }
