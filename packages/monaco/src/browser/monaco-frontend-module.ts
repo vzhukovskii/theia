@@ -151,7 +151,7 @@ export function createMonacoConfigurationService(container: interfaces.Container
 
     _configuration.getValue = (section, overrides, workspace) => {
         const overrideIdentifier = overrides && 'overrideIdentifier' in overrides && overrides['overrideIdentifier'] as string || undefined;
-        const resourceUri = overrides && 'resource' in overrides && overrides['resource'].toString();
+        const resourceUri = overrides && 'resource' in overrides && !!overrides['resource'] && overrides['resource'].toString();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const proxy = createPreferenceProxy<{ [key: string]: any }>(preferences, preferenceSchemaProvider.getCombinedSchema(), {
             resourceUri, overrideIdentifier, style: 'both'
