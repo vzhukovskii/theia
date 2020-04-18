@@ -171,52 +171,59 @@ export class OutputChannel implements Disposable {
 
     private readonly visibilityChangeEmitter = new Emitter<{ visible: boolean }>();
     private readonly lockChangeEmitter = new Emitter<{ locked: boolean }>();
-    private readonly contentChangeEmitter = new Emitter<OutputChannel>();
+    private readonly contentChangeEmitter = new Emitter<{ text: string }>();
     private readonly toDispose = new DisposableCollection(
         this.visibilityChangeEmitter,
         this.lockChangeEmitter,
         this.contentChangeEmitter
     );
 
-    private lines: string[] = [];
-    private currentLine: string | undefined;
+    readonly model: monaco.editor.ITextModel;
     private visible: boolean = true;
     private locked: boolean = false;
 
     readonly onVisibilityChange: Event<{ visible: boolean }> = this.visibilityChangeEmitter.event;
     readonly onLockChange: Event<{ locked: boolean }> = this.lockChangeEmitter.event;
-    readonly onContentChange: Event<OutputChannel> = this.contentChangeEmitter.event;
+    readonly onContentChange: Event<{ text: string }> = this.contentChangeEmitter.event;
 
-    constructor(readonly name: string, protected readonly preferences: OutputPreferences) { }
-
-    append(value: string): void {
-        if (this.currentLine === undefined) {
-            this.currentLine = { text: value, severity: OutputChannelSeverity.Info };
-        } else {
-            this.currentLine.text += value;
+    constructor(readonly name: string, protected readonly preferences: OutputPreferences) {
+        try {
+            this.model = monaco.editor.createModel('', 'plaintext', monaco.Uri.parse(`output://${name}`));
+            this.toDispose.push(this.model.onDidChangeContent(event => {
+                if (event.changes.length > 1) {
+                    throw new Error('TODO: decide about the delta structure. can we expose IModelContentChangedEvent as-is?');
+                }
+                const { text } = event.changes[0];
+                this.contentChangeEmitter.fire({ text });
+            }));
+        } catch (e) {
+            throw e;
         }
-        this.contentChangeEmitter.fire(this);
     }
 
-    appendLine(line: string, severity = OutputChannelSeverity.Info): void {
-        if (this.currentLine !== undefined) {
-            this.currentLine.text = this.currentLine.text + line;
-            this.lines.push(this.currentLine);
-            this.currentLine = undefined;
-        } else {
-            this.lines.push({ text: line, severity });
-        }
-        const maxChannelHistory = this.preferences['output.maxChannelHistory'];
-        if (this.lines.length > maxChannelHistory) {
-            this.lines.splice(0, this.lines.length - maxChannelHistory);
-        }
-        this.contentChangeEmitter.fire(this);
+    append(text: string): void {
+        const line = this.model.getLineCount();
+        const column = this.model.getLineLength(line);
+        const range = new monaco.Range(line, column, line, column);
+        this.model.applyEdits([
+            {
+                range,
+                text
+            }
+        ]);
+    }
+
+    appendLine(line: string): void {
+        this.append(`${line}${this.model.getEOL()}`);
+        // TODO: do not forget this! Maybe, we can remove text form the start of the model to support clipping.
+        // const maxChannelHistory = this.preferences['output.maxChannelHistory'];
+        // if (this.lines.length > maxChannelHistory) {
+        //     this.lines.splice(0, this.lines.length - maxChannelHistory);
+        // }
     }
 
     clear(): void {
-        this.lines.length = 0;
-        this.currentLine = undefined;
-        this.contentChangeEmitter.fire(this);
+        this.model.setValue('');
     }
 
     setVisibility(visible: boolean): void {
@@ -224,12 +231,8 @@ export class OutputChannel implements Disposable {
         this.visibilityChangeEmitter.fire({ visible });
     }
 
-    getLines(): OutputChannelLine[] {
-        if (this.currentLine !== undefined) {
-            return [...this.lines, this.currentLine];
-        } else {
-            return this.lines;
-        }
+    getLines(): string[] {
+        return this.model.getLinesContent();
     }
 
     get isVisible(): boolean {

@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Theia - Output Extension",
   "dependencies": {
-    "@theia/core": "^1.0.0"
+    "@theia/core": "^1.0.0",
+    "@theia/monaco-editor-core": "^0.19.3"
   },
   "publishConfig": {
     "access": "public"
