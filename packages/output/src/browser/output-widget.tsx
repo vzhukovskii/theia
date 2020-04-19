@@ -17,7 +17,7 @@
 import '../../src/browser/style/output.css';
 import { inject, injectable, postConstruct } from 'inversify';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
-import { Message, BaseWidget } from '@theia/core/lib/browser';
+import { Message, BaseWidget, /* MessageLoop, Widget */ } from '@theia/core/lib/browser';
 import { OutputChannelManager, OutputChannel } from '../common/output-channel';
 
 @injectable()
@@ -41,42 +41,41 @@ export class OutputWidget extends BaseWidget {
         this.title.closable = true;
         this.addClass('theia-output');
         this.node.tabIndex = 0;
-        this.editor = monaco.editor.create(this.node);
+        this.editor = monaco.editor.create(this.node, this.editorOptions());
         this.emptyModel = monaco.editor.createModel('<No output yet>', 'plaintext');
-        this.editor.setModel(this.emptyModel);
         this.toDispose.push(Disposable.create(() => this.editor.dispose()));
     }
 
     @postConstruct()
     protected init(): void {
         this.toDispose.pushAll([
-            // this.outputChannelManager.onChannelAdded(this.addChannel.bind(this)),
-            // this.outputChannelManager.onChannelDelete(this.removeChannel.bind(this)),
-            this.outputChannelManager.onSelectedChannelChange(() => this.editor.setModel(this.selectedChannel ? this.selectedChannel.model : this.emptyModel))
+            this.outputChannelManager.onSelectedChannelChange(this.onSelectedChannelChange.bind(this))
         ]);
+        this.onSelectedChannelChange();
     }
 
     protected onSelectedChannelChange(): void {
         this.toDisposeOnSelectedChannelChange.dispose();
-        if (this.selectedChannel) {
-            // this.selectedChannel.onContentChange(() => {
-            //     this.editor.up
-            // })
-        }
-        // this.toDisposeOnSelectedChannelChange
+        const model = this.selectedChannel ? this.selectedChannel.model : this.emptyModel;
+        this.editor.setModel(model);
+        this.editor.layout(undefined);
     }
 
-    protected onAfterAttach(message: Message): void {
-        super.onAfterAttach(message);
+    protected onAfterAttach(msg: Message): void {
+        super.onAfterAttach(msg);
+        if (this.isVisible) {
+            this.editor.layout(undefined);
+        }
+    }
+
+    protected onAfterShow(msg: Message): void {
+        super.onAfterShow(msg);
+        this.editor.layout(undefined);
     }
 
     protected onActivateRequest(message: Message): void {
         super.onActivateRequest(message);
-        if (this.editor) {
-            this.editor.focus();
-        } else {
-            this.node.focus();
-        }
+        this.editor.focus();
     }
 
     clear(): void {
@@ -92,6 +91,23 @@ export class OutputWidget extends BaseWidget {
             const endCharacter = model.getLineLastNonWhitespaceColumn(endLine);
             this.editor.setSelection(new monaco.Range(1, 1, endLine, endCharacter));
         }
+    }
+
+    protected editorOptions(): monaco.editor.IEditorOptions {
+        return {
+            overviewRulerLanes: 3,
+            lineNumbersMinChars: 3,
+            fixedOverflowWidgets: true,
+            wordWrap: 'on',
+            lineNumbers: 'off',
+            glyphMargin: false,
+            lineDecorationsWidth: 20,
+            rulers: [],
+            folding: false,
+            scrollBeyondLastLine: false,
+            renderLineHighlight: 'none',
+            minimap: { enabled: false },
+        };
     }
 
     private get selectedChannel(): OutputChannel | undefined {

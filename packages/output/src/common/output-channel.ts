@@ -187,18 +187,17 @@ export class OutputChannel implements Disposable {
     readonly onContentChange: Event<{ text: string }> = this.contentChangeEmitter.event;
 
     constructor(readonly name: string, protected readonly preferences: OutputPreferences) {
-        try {
-            this.model = monaco.editor.createModel('', 'plaintext', monaco.Uri.parse(`output://${name}`));
-            this.toDispose.push(this.model.onDidChangeContent(event => {
+        this.model = monaco.editor.createModel('', 'plaintext', monaco.Uri.parse(`output://${name}`));
+        this.toDispose.pushAll([
+            this.model,
+            this.model.onDidChangeContent(event => {
                 if (event.changes.length > 1) {
                     throw new Error('TODO: decide about the delta structure. can we expose IModelContentChangedEvent as-is?');
                 }
                 const { text } = event.changes[0];
                 this.contentChangeEmitter.fire({ text });
-            }));
-        } catch (e) {
-            throw e;
-        }
+            })
+        ]);
     }
 
     append(text: string): void {

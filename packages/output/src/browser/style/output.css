@@ -14,17 +14,8 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-#outputView {
-    font-size: var(--theia-ui-font-size1);
-}
-
-#outputView .channels-container {
+ .theia-output {
     height: 100%;
-    width: 100%;
-}
-
-#outputView .channels-container .output-channel-widget {
-    padding: 6px;
 }
 
 .theia-output-error {
