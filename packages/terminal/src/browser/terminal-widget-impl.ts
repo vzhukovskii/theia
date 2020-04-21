@@ -85,6 +85,7 @@ export class TerminalWidgetImpl extends TerminalWidget implements StatefulWidget
 
     @postConstruct()
     protected init(): void {
+        console.log('++++++++++++++++++++++ terminal widget +++ INIT ', this.options);
         this.setTitle(this.options.title || this.TERMINAL);
         this.title.iconClass = 'fa fa-terminal';
 
@@ -335,22 +336,29 @@ export class TerminalWidgetImpl extends TerminalWidget implements StatefulWidget
      * If id is provided attach to the terminal for this id.
      */
     async start(id?: number): Promise<number> {
+        console.log('++++++++++++++++++++++ terminal widget +++ START ', id);
         this._terminalId = typeof id !== 'number' ? await this.createTerminal() : await this.attachTerminal(id);
+        console.log('+++ terminal widget +++ START +++ termID ', this._terminalId);
         this.resizeTerminalProcess();
         this.connectTerminalProcess();
         if (IBaseTerminalServer.validateId(this.terminalId)) {
             this.onDidOpenEmitter.fire(undefined);
+            console.log('+++ terminal widget +++ START +++ validated ', this.terminalId);
             return this.terminalId;
         }
+        console.log('+++ terminal widget +++ START +++ NOT validated ', this.terminalId);
         this.onDidOpenFailureEmitter.fire(undefined);
         throw new Error('Failed to start terminal' + (id ? ` for id: ${id}.` : '.'));
     }
 
     protected async attachTerminal(id: number): Promise<number> {
+        console.log('+++ terminal widget +++ ATTACH +++ ', id);
         const terminalId = await this.shellTerminalServer.attach(id);
         if (IBaseTerminalServer.validateId(terminalId)) {
+            console.log('+++ terminal widget +++ START +++ validated ', terminalId);
             return terminalId;
         }
+        console.log('+++ terminal widget +++ START +++ NOT validated ', terminalId);
         this.logger.error(`Error attaching to terminal id ${id}, the terminal is most likely gone. Starting up a new terminal instead.`);
         if (this.kind === 'user') {
             return this.createTerminal();
