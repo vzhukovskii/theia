@@ -136,6 +136,7 @@ export class TaskTerminalWidgetManager {
 
     async newTaskTerminal(factoryOptions: TerminalWidgetFactoryOptions, taskConfig?: TaskConfiguration): Promise<TerminalWidget> {
         console.log('*** TASK terminal manager /// create NEW Task terminal /// factory ', factoryOptions);
+        console.error('!!!!!  TASK service !!! run BEFORE new terminal ', new Date().valueOf());
         return this.terminalService.newTerminal({ ...factoryOptions, kind: 'task' });
     }
 
@@ -204,6 +205,7 @@ export class TaskTerminalWidgetManager {
         // we are unable to find a terminal widget to run the task, or `taskPresentation === 'new'`
         if (!reusableTerminalWidget) {
             const widget = await this.newTaskTerminal(factoryOptions);
+            console.error('!!!!!  TASK service !!! run AFTER new terminal ', new Date().valueOf());
             return { isNew: true, widget };
         }
         return { isNew: false, widget: reusableTerminalWidget };
