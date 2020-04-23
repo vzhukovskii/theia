@@ -16,25 +16,27 @@
 
 import { ContainerModule } from 'inversify';
 import { OutputWidget, OUTPUT_WIDGET_KIND } from './output-widget';
+import { CommandContribution } from '@theia/core/lib/common/command';
+import { TabBarToolbarContribution } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { WidgetFactory, bindViewContribution, KeybindingContext, FrontendApplicationContribution } from '@theia/core/lib/browser';
-import { OutputContribution, OutputWidgetIsActiveContext } from './output-contribution';
-import { OutputToolbarContribution } from './output-toolbar-contribution';
 import { OutputChannelManager } from '../common/output-channel';
 import { bindOutputPreferences } from '../common/output-preferences';
-import { TabBarToolbarContribution } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
+import { OutputToolbarContribution } from './output-toolbar-contribution';
+import { OutputContribution, OutputWidgetIsActiveContext } from './output-contribution';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bindOutputPreferences(bind);
     bind(OutputWidget).toSelf();
     bind(OutputChannelManager).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(OutputChannelManager);
+    bind(CommandContribution).toService(OutputChannelManager);
 
     bind(WidgetFactory).toDynamicValue(context => ({
         id: OUTPUT_WIDGET_KIND,
         createWidget: () => context.container.get<OutputWidget>(OutputWidget)
     }));
-
     bindViewContribution(bind, OutputContribution);
+
     bind(OutputWidgetIsActiveContext).toSelf().inSingletonScope();
     bind(KeybindingContext).toService(OutputWidgetIsActiveContext);
     bind(OutputToolbarContribution).toSelf().inSingletonScope();

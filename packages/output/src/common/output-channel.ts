@@ -19,9 +19,12 @@ import { Emitter, Event, Disposable, DisposableCollection } from '@theia/core';
 import { StorageService, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Deferred } from '@theia/core/lib/common/promise-util';
 import { OutputPreferences } from './output-preferences';
+import { CommandRegistry, CommandContribution } from '@theia/core/lib/common/command';
+import { OutputCommands } from '../browser/output-contribution';
 
 @injectable()
-export class OutputChannelManager implements FrontendApplicationContribution, Disposable {
+export class OutputChannelManager implements FrontendApplicationContribution, CommandContribution, Disposable {
+
     protected readonly channels = new Map<string, OutputChannel>();
     protected selectedChannelValue: OutputChannel | undefined;
 
@@ -85,6 +88,51 @@ export class OutputChannelManager implements FrontendApplicationContribution, Di
                 this.selectedChannel = this.getVisibleChannels()[0];
             }
         }));
+    }
+
+    registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand(OutputCommands.APPEND, {
+            execute: ({ name, text }: { name: string, text: string }) => {
+                if (name && text) {
+                    this.getChannel(name).append(text);
+                }
+            }
+        });
+        registry.registerCommand(OutputCommands.APPEND_LINE, {
+            execute: ({ name, text }: { name: string, text: string }) => {
+                if (name && text) {
+                    this.getChannel(name).appendLine(text);
+                }
+            }
+        });
+        registry.registerCommand(OutputCommands.CLEAR, {
+            execute: ({ name }: { name: string }) => {
+                if (name) {
+                    this.getChannel(name).clear();
+                }
+            }
+        });
+        registry.registerCommand(OutputCommands.SHOW, {
+            execute: ({ name, options }: { name: string, options?: { preserveFocus?: boolean } }) => {
+                if (name) {
+                    // TODO: Does this belong here or should go to the UI? Probably the latter.
+                }
+            }
+        });
+        registry.registerCommand(OutputCommands.HIDE, {
+            execute: ({ name }: { name: string }) => {
+                if (name) {
+                    // TODO: same as for `show`. Figure out whether creating a new channel if does not exist is a good strategy or not.
+                }
+            }
+        });
+        registry.registerCommand(OutputCommands.DISPOSE, {
+            execute: ({ name }: { name: string }) => {
+                if (name) {
+                    this.deleteChannel(name);
+                }
+            }
+        });
     }
 
     protected registerListener(outputChannel: OutputChannel): void {
@@ -204,6 +252,8 @@ export class OutputChannel implements Disposable {
         const line = this.model.getLineCount();
         const column = this.model.getLineLength(line);
         const range = new monaco.Range(line, column, line, column);
+        // TODO: use `pushEditOperations` instead? Do we need undo/redo support?
+        // TODO: check if cursor position can be handled with the `textModel` only.
         this.model.applyEdits([
             {
                 range,

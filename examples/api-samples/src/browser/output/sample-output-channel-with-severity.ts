@@ -15,7 +15,7 @@
  ********************************************************************************/
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { inject, injectable, interfaces } from 'inversify';
-import { OutputChannelManager, OutputChannelSeverity } from '@theia/output/lib/common/output-channel';
+import { OutputChannelManager, /* OutputChannelSeverity */ } from '@theia/output/lib/common/output-channel';
 
 @injectable()
 export class SampleOutputChannelWithSeverity
@@ -25,9 +25,9 @@ export class SampleOutputChannelWithSeverity
     public onStart(): void {
         const channel = this.outputChannelManager.getChannel('my test channel');
         channel.appendLine('hello info1'); // showed without color
-        channel.appendLine('hello info2', OutputChannelSeverity.Info);
-        channel.appendLine('hello error', OutputChannelSeverity.Error);
-        channel.appendLine('hello warning', OutputChannelSeverity.Warning);
+        // channel.appendLine('hello info2', OutputChannelSeverity.Info);
+        // channel.appendLine('hello error', OutputChannelSeverity.Error);
+        // channel.appendLine('hello warning', OutputChannelSeverity.Warning);
     }
 }
 export const bindSampleOutputChannelWithSeverity = (bind: interfaces.Bind) => {

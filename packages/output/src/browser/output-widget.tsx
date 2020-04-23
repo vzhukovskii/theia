@@ -75,6 +75,7 @@ export class OutputWidget extends BaseWidget {
 
     protected onActivateRequest(message: Message): void {
         super.onActivateRequest(message);
+        this.editor.layout(undefined);
         this.editor.focus();
     }
 
@@ -105,6 +106,7 @@ export class OutputWidget extends BaseWidget {
             rulers: [],
             folding: false,
             scrollBeyondLastLine: false,
+            readOnly: true,
             renderLineHighlight: 'none',
             minimap: { enabled: false },
         };

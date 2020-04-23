@@ -15,31 +15,60 @@
  ********************************************************************************/
 
 import { injectable, inject } from 'inversify';
-import { AbstractViewContribution } from '@theia/core/lib/browser/shell/view-contribution';
-import { Widget, KeybindingRegistry, KeybindingContext, ApplicationShell } from '@theia/core/lib/browser';
-import { OUTPUT_WIDGET_KIND, OutputWidget } from './output-widget';
 import { Command, CommandRegistry } from '@theia/core/lib/common';
-import { OutputChannelManager } from '../common/output-channel';
+import { AbstractViewContribution } from '@theia/core/lib/browser/shell/view-contribution';
+import { KeybindingRegistry, KeybindingContext, ApplicationShell } from '@theia/core/lib/browser';
+import { OutputWidget } from './output-widget';
 
 export namespace OutputCommands {
 
     const OUTPUT_CATEGORY = 'Output';
 
-    export const CLEAR_OUTPUT_TOOLBAR: Command = {
-        id: 'output:clear',
+    /* #region VS Code `OutputChannel` API */
+    // Based on: https://github.com/theia-ide/vscode/blob/standalone/0.19.x/src/vs/vscode.d.ts#L4692-L4745
+
+    export const APPEND: Command = {
+        id: 'output:append'
+    };
+
+    export const APPEND_LINE: Command = {
+        id: 'output:appendLine'
+    };
+
+    export const CLEAR: Command = {
+        id: 'output:clear'
+    };
+
+    export const SHOW: Command = {
+        id: 'output:show'
+    };
+
+    export const HIDE: Command = {
+        id: 'output:hide'
+    };
+
+    export const DISPOSE: Command = {
+        id: 'output:dispose'
+    };
+
+    /* #endregion VS Code `OutputChannel` API */
+
+    export const CLEAR__SELECTED: Command = {
+        id: 'output:selected:clear',
         category: OUTPUT_CATEGORY,
-        label: 'Clear Output',
+        label: 'Clear Output of the Selected Channel',
         iconClass: 'clear-all'
     };
 
-    export const SELECT_ALL: Command = {
-        id: 'output:selectAll',
+    // XXX: this will be obsolete, I guess after switching to monaco.
+    export const SELECT_ALL__SELECTED: Command = {
+        id: 'output:selected:selectAll',
         category: OUTPUT_CATEGORY,
         label: 'Select All'
     };
 
-    export const SCROLL_LOCK: Command = {
-        id: 'output:scrollLock',
+    export const SCROLL_LOCK__SELECTED: Command = {
+        id: 'output:selected:scrollLock',
         label: 'Toggle Auto Scroll in Selected Channel',
         category: OUTPUT_CATEGORY
     };
@@ -71,58 +100,52 @@ export class OutputContribution extends AbstractViewContribution<OutputWidget> {
     @inject(OutputWidgetIsActiveContext)
     protected readonly outputIsActiveContext: OutputWidgetIsActiveContext;
 
-    @inject(OutputChannelManager)
-    protected readonly outputChannelManager: OutputChannelManager;
+    @inject(CommandRegistry)
+    protected readonly commandRegistry: CommandRegistry;
 
     constructor() {
         super({
-            widgetId: OUTPUT_WIDGET_KIND,
+            widgetId: OutputWidget.ID,
             widgetName: 'Output',
             defaultWidgetOptions: {
                 area: 'bottom'
             },
             toggleCommandId: 'output:toggle',
-            toggleKeybinding: 'ctrlcmd+shift+u'
+            toggleKeybinding: 'CtrlCmd+Shift+U'
         });
     }
 
     registerCommands(commands: CommandRegistry): void {
         super.registerCommands(commands);
-        commands.registerCommand(OutputCommands.CLEAR_OUTPUT_TOOLBAR, {
-            isEnabled: widget => this.withWidget(widget, () => true),
-            isVisible: widget => this.withWidget(widget, () => true),
-            execute: widget => this.withWidget(widget, outputWidget => this.clear(outputWidget))
+        const isEnabled = (() => this.outputIsActiveContext.isEnabled()).bind(this);
+        const isVisible = isEnabled;
+        commands.registerCommand(OutputCommands.CLEAR__SELECTED, {
+            isEnabled,
+            isVisible,
+            execute: () => this.widget.then(widget => widget.clear())
         });
-        commands.registerCommand(OutputCommands.SELECT_ALL, {
-            isEnabled: () => this.outputIsActiveContext.isEnabled(),
-            isVisible: () => this.outputIsActiveContext.isEnabled(),
-            execute: widget => this.withWidget(widget, outputWidget => outputWidget.selectAll())
+        commands.registerCommand(OutputCommands.SELECT_ALL__SELECTED, {
+            isEnabled,
+            isVisible,
+            execute: () => this.widget.then(widget => widget.selectAll())
         });
-        commands.registerCommand(OutputCommands.SCROLL_LOCK, {
-            isEnabled: () => this.outputIsActiveContext.isEnabled(),
-            isVisible: () => this.outputIsActiveContext.isEnabled(),
-            execute: () => this.outputChannelManager.toggleScrollLock()
+        commands.registerCommand(OutputCommands.SCROLL_LOCK__SELECTED, {
+            isEnabled,
+            isVisible,
+            execute: () => {
+
+            }
         });
     }
 
+    // See comment on `SELECT_ALL__SELECTED`, I think we won't need this.
     registerKeybindings(registry: KeybindingRegistry): void {
         super.registerKeybindings(registry);
         registry.registerKeybindings({
-            command: OutputCommands.SELECT_ALL.id,
+            command: OutputCommands.SELECT_ALL__SELECTED.id,
             keybinding: 'CtrlCmd+A',
             context: OutputWidgetIsActiveContext.ID
         });
-    }
-
-    protected async clear(widget: OutputWidget): Promise<void> {
-        widget.clear();
-    }
-
-    protected withWidget<T>(widget: Widget | undefined = this.tryGetWidget(), cb: (problems: OutputWidget) => T): T | false {
-        if (widget instanceof OutputWidget && widget.id === OUTPUT_WIDGET_KIND) {
-            return cb(widget);
-        }
-        return false;
     }
 
 }

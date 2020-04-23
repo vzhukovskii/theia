@@ -14,22 +14,19 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
+import * as React from 'react';
 import { inject, injectable } from 'inversify';
-import { OutputWidget } from './output-widget';
-import { OutputChannelManager } from '../common/output-channel';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { TabBarToolbarContribution, TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
-import { OutputCommands, OutputContribution } from './output-contribution';
-import * as React from 'react';
+import { OutputWidget } from './output-widget';
+import { OutputCommands } from './output-contribution';
+import { OutputChannelManager } from '../common/output-channel';
 
 @injectable()
 export class OutputToolbarContribution implements TabBarToolbarContribution {
 
     @inject(OutputChannelManager)
     protected readonly outputChannelManager: OutputChannelManager;
-
-    @inject(OutputContribution)
-    protected readonly outputContribution: OutputContribution;
 
     async registerToolbarItems(toolbarRegistry: TabBarToolbarRegistry): Promise<void> {
         toolbarRegistry.registerItem({
@@ -39,15 +36,15 @@ export class OutputToolbarContribution implements TabBarToolbarContribution {
             onDidChange: this.outputChannelManager.onListOrSelectionChange
         });
         toolbarRegistry.registerItem({
-            id: OutputCommands.CLEAR_OUTPUT_TOOLBAR.id,
-            command: OutputCommands.CLEAR_OUTPUT_TOOLBAR.id,
-            tooltip: 'Clear Output',
+            id: OutputCommands.CLEAR__SELECTED.id,
+            command: OutputCommands.CLEAR__SELECTED.id,
+            tooltip: OutputCommands.CLEAR__SELECTED.label,
             priority: 1,
         });
         toolbarRegistry.registerItem({
-            id: OutputCommands.SCROLL_LOCK.id,
+            id: OutputCommands.SCROLL_LOCK__SELECTED.id,
             render: () => <ScrollLockToolbarItem
-                key={OutputCommands.SCROLL_LOCK.id}
+                key={OutputCommands.SCROLL_LOCK__SELECTED.id}
                 outputChannelManager={this.outputChannelManager} />,
             isVisible: widget => widget instanceof OutputWidget,
             priority: 2
