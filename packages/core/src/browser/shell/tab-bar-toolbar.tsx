@@ -289,7 +289,8 @@ export interface TabBarToolbarItem {
      *
      * Note: currently, each item of the container toolbar will be re-rendered if any of the items have changed.
      */
-    readonly onDidChange?: Event<void>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readonly onDidChange?: Event<any>;
 
 }
 
@@ -301,7 +302,8 @@ export interface ReactTabBarToolbarItem {
     readonly id: string;
     render(widget?: Widget): React.ReactNode;
 
-    readonly onDidChange?: Event<void>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readonly onDidChange?: Event<any>;
 
     // For the rest, see `TabBarToolbarItem`.
     // For conditional visibility.
