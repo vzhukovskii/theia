@@ -15,14 +15,14 @@
  ********************************************************************************/
 
 import { injectable, inject } from 'inversify';
-import { MessageService, CommandRegistry } from '@theia/core/lib/common';
+import { MessageService, CommandService } from '@theia/core/lib/common';
 import { Window, OutputChannel, MessageActionItem, MessageType } from 'monaco-languageclient/lib/services';
 
 @injectable()
 export class WindowImpl implements Window {
 
     @inject(MessageService) protected readonly messageService: MessageService;
-    @inject(CommandRegistry) protected readonly commandRegistry: CommandRegistry;
+    @inject(CommandService) protected readonly commandService: CommandService;
 
     showMessage<T extends MessageActionItem>(type: MessageType, message: string, ...actions: T[]): Thenable<T | undefined> {
         const originalActions = new Map((actions || []).map(action => [action.title, action] as [string, T]));
@@ -50,10 +50,10 @@ export class WindowImpl implements Window {
 
     createOutputChannel(name: string): OutputChannel {
         return {
-            append: text => this.commandRegistry.executeCommand('output:append', { name, text }),
-            appendLine: text => this.commandRegistry.executeCommand('output:appendLine', { name, text }),
-            dispose: () => this.commandRegistry.executeCommand('output:dispose', { name }),
-            show: (preserveFocus: boolean = false) => this.commandRegistry.executeCommand('output:show', { name, options: { preserveFocus } })
+            append: text => this.commandService.executeCommand('output:append', { name, text }),
+            appendLine: text => this.commandService.executeCommand('output:appendLine', { name, text }),
+            dispose: () => this.commandService.executeCommand('output:dispose', { name }),
+            show: (preserveFocus: boolean = false) => this.commandService.executeCommand('output:show', { name, options: { preserveFocus } })
         };
     }
 }
