@@ -28,7 +28,7 @@ export class OutputWidget extends BaseWidget {
     @inject(OutputChannelManager)
     protected readonly outputChannelManager: OutputChannelManager;
 
-    protected readonly toDisposeOnSelectedChannelChange = new DisposableCollection();
+    protected readonly toDisposeOnSelectedChannelChanged = new DisposableCollection();
     protected readonly editor: monaco.editor.IStandaloneCodeEditor;
     protected readonly emptyModel: monaco.editor.ITextModel;
 
@@ -48,28 +48,31 @@ export class OutputWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
-        this.toDispose.pushAll([
-            this.outputChannelManager.onSelectedChannelChanged(this.onSelectedChannelChange.bind(this))
-        ]);
-        this.onSelectedChannelChange();
+        this.toDispose.push(this.outputChannelManager.onSelectedChannelChanged(this.onSelectedChannelChanged.bind(this)));
+        this.onSelectedChannelChanged();
     }
 
-    protected onSelectedChannelChange(): void {
-        this.toDisposeOnSelectedChannelChange.dispose();
-        const model = this.selectedChannel ? this.selectedChannel.model : this.emptyModel;
-        this.editor.setModel(model);
+    protected onSelectedChannelChanged(): void {
+        this.toDisposeOnSelectedChannelChanged.dispose();
+        // If there is a selected channel but it is empty, we have to listen on to the first changes
+        // and replace the editor's `emptyModel` with the currently selected channel's text model.
+        const { selectedChannel } = this;
+        if (selectedChannel && !selectedChannel.model.getValue()) {
+            let toDisposeOnContentChange: Disposable | undefined = undefined;
+            toDisposeOnContentChange = selectedChannel.onContentChange(() => {
+                if (selectedChannel.model.getValue() && toDisposeOnContentChange) {
+                    toDisposeOnContentChange.dispose();
+                }
+                this.editor.setModel(this.model);
+            });
+            this.toDisposeOnSelectedChannelChanged.push(toDisposeOnContentChange);
+        }
+        this.editor.setModel(this.model);
         this.editor.layout(undefined);
     }
 
     protected onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
-        if (this.isVisible) {
-            this.editor.layout(undefined);
-        }
-    }
-
-    protected onAfterShow(msg: Message): void {
-        super.onAfterShow(msg);
         this.editor.layout(undefined);
     }
 
@@ -114,6 +117,14 @@ export class OutputWidget extends BaseWidget {
 
     private get selectedChannel(): OutputChannel | undefined {
         return this.outputChannelManager.selectedChannel;
+    }
+
+    private get model(): monaco.editor.ITextModel {
+        const { selectedChannel } = this;
+        if (!selectedChannel || !selectedChannel.model.getValue()) {
+            return this.emptyModel;
+        }
+        return selectedChannel.model;
     }
 
 }

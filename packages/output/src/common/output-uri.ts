@@ -27,4 +27,8 @@ export namespace OutputUri {
         return is(new URI(uri));
     }
 
+    export function create(name: string): URI {
+        return new URI(name).withScheme(SCHEME);
+    }
+
 }

@@ -21,6 +21,7 @@ import { Deferred } from '@theia/core/lib/common/promise-util';
 import { OutputPreferences } from './output-preferences';
 import { CommandRegistry, CommandContribution } from '@theia/core/lib/common/command';
 import { OutputCommands } from '../browser/output-contribution';
+import { OutputUri } from './output-uri';
 
 @injectable()
 export class OutputChannelManager implements FrontendApplicationContribution, CommandContribution, Disposable {
@@ -230,7 +231,7 @@ export class OutputChannel implements Disposable {
     readonly onContentChange: Event<{ text: string }> = this.contentChangeEmitter.event;
 
     constructor(readonly name: string, protected readonly preferences: OutputPreferences) {
-        this.model = monaco.editor.createModel('', 'plaintext', monaco.Uri.parse(`output://${name}`));
+        this.model = monaco.editor.createModel('', 'plaintext', monaco.Uri.parse(OutputUri.create(name).toString()));
         this.toDispose.pushAll([
             this.model,
             this.model.onDidChangeContent(event => {
