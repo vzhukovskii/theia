@@ -101,28 +101,29 @@ export class TaskTerminalWidgetManager {
 
         this.terminalService.onDidCreateTerminal(async (widget: TerminalWidget) => {
             console.log('************************** TASK terminal manager *** onDidCreateTerminal ', widget);
-            const terminal = TaskTerminalWidget.is(widget) && widget;
+            const terminal = widget;
             if (terminal) {
                 console.log('*** TASK terminal manager *** onDidCreateTerminal *** terminal found ');
                 const didConnectListener = terminal.onDidOpen(async () => {
+                    console.error('+++++++++++++++++++++++++++++++++ TASK terminal manager === OPEN  ', new Date().valueOf());
                     console.log('*** TASK terminal manager *** onDidCreateTerminal *** terminal.onDidOpen ');
                     const context = this.workspaceService.workspace && this.workspaceService.workspace.uri;
                     const tasksInfo = await this.taskServer.getTasks(context);
                     const taskInfo = tasksInfo.find(info => info.terminalId === widget.terminalId);
                     if (taskInfo) {
                         console.log('*** TASK terminal manager *** onDidCreateTerminal *** terminal.onDidOpen *** taskInfo found');
-                        const taskConfig = taskInfo.config;
-                        terminal.dedicated = !!taskConfig.presentation && !!taskConfig.presentation.panel && taskConfig.presentation.panel === PanelKind.Dedicated;
-                        terminal.taskId = taskInfo.taskId;
-                        terminal.taskConfig = taskConfig;
-                        terminal.busy = true;
+                        // const taskConfig = taskInfo.config;
+                        // terminal.dedicated = !!taskConfig.presentation && !!taskConfig.presentation.panel && taskConfig.presentation.panel === PanelKind.Dedicated;
+                        // terminal.taskId = taskInfo.taskId;
+                        // terminal.taskConfig = taskConfig;
+                        // terminal.busy = true;
                     } else {
                         console.log('*** TASK terminal manager *** onDidCreateTerminal *** terminal.onDidOpen *** taskInfo NOT found');
-                        this.notifyTaskFinished(terminal, true);
+                        // this.notifyTaskFinished(terminal, true);
                     }
                 });
                 const didConnectFailureListener = terminal.onDidOpenFailure(async () => {
-                    this.notifyTaskFinished(terminal, true);
+                    // this.notifyTaskFinished(terminal, true);
                 });
                 terminal.onDidDispose(() => {
                     didConnectListener.dispose();
