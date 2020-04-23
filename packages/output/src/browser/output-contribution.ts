@@ -94,14 +94,12 @@ export class OutputWidgetIsActiveContext implements KeybindingContext {
 
 }
 
+// TODO: rename to `OutputViewContribution` to better reflect to what it does.
 @injectable()
 export class OutputContribution extends AbstractViewContribution<OutputWidget> {
 
     @inject(OutputWidgetIsActiveContext)
     protected readonly outputIsActiveContext: OutputWidgetIsActiveContext;
-
-    @inject(CommandRegistry)
-    protected readonly commandRegistry: CommandRegistry;
 
     constructor() {
         super({

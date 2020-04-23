@@ -49,7 +49,7 @@ export class OutputWidget extends BaseWidget {
     @postConstruct()
     protected init(): void {
         this.toDispose.pushAll([
-            this.outputChannelManager.onSelectedChannelChange(this.onSelectedChannelChange.bind(this))
+            this.outputChannelManager.onSelectedChannelChanged(this.onSelectedChannelChange.bind(this))
         ]);
         this.onSelectedChannelChange();
     }

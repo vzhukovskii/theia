@@ -25,30 +25,30 @@ import { OutputCommands } from '../browser/output-contribution';
 @injectable()
 export class OutputChannelManager implements FrontendApplicationContribution, CommandContribution, Disposable {
 
-    protected readonly channels = new Map<string, OutputChannel>();
-    protected selectedChannelValue: OutputChannel | undefined;
-
-    protected readonly channelDeleteEmitter = new Emitter<{ channelName: string }>();
-    protected readonly channelAddedEmitter = new Emitter<OutputChannel>();
-    protected readonly selectedChannelEmitter: Emitter<void> = new Emitter<void>();
-    protected readonly listOrSelectionEmitter: Emitter<void> = new Emitter<void>();
-    protected readonly channelLockedEmitter = new Emitter<OutputChannel>();
-    readonly onChannelDelete = this.channelDeleteEmitter.event;
-    readonly onChannelAdded = this.channelAddedEmitter.event;
-    readonly onSelectedChannelChange = this.selectedChannelEmitter.event;
-    readonly onListOrSelectionChange = this.listOrSelectionEmitter.event;
-    readonly onLockChange = this.channelLockedEmitter.event;
-
-    protected toDispose = new DisposableCollection();
-    protected toDisposeOnChannelDeletion = new Map<string, DisposableCollection>();
-    protected lockedChannels = new Set<string>();
-    protected restoredState = new Deferred<void>();
-
     @inject(OutputPreferences)
     protected readonly preferences: OutputPreferences;
 
     @inject(StorageService)
     protected readonly storageService: StorageService;
+
+    protected readonly channels = new Map<string, OutputChannel>();
+    protected _selectedChannel?: OutputChannel | undefined;
+
+    protected readonly channelAddedEmitter = new Emitter<{ name: string }>();
+    protected readonly channelDeletedEmitter = new Emitter<{ name: string }>();
+    protected readonly channelLockedEmitter = new Emitter<{ name: string }>();
+    protected readonly selectedChannelChangedEmitter = new Emitter<{ name?: string }>();
+
+    readonly onChannelAdded = this.channelAddedEmitter.event;
+    readonly onChannelDeleted = this.channelDeletedEmitter.event;
+    readonly onChannelLocked = this.channelLockedEmitter.event; // TODO: does this belong here?
+    readonly onSelectedChannelChanged = this.selectedChannelChangedEmitter.event;
+
+    protected toDispose = new DisposableCollection();
+    protected toDisposeOnChannelDeletion = new Map<string, DisposableCollection>();
+
+    protected lockedChannels = new Set<string>();
+    protected restoredState = new Deferred<void>();
 
     onStart(): void {
         this.storageService.getData<Array<string>>('theia:output-channel-manager:lockedChannels')
@@ -71,23 +71,18 @@ export class OutputChannelManager implements FrontendApplicationContribution, Co
     protected async init(): Promise<void> {
         await this.restoredState.promise;
         this.toDispose.pushAll([
-            this.channelDeleteEmitter,
             this.channelAddedEmitter,
-            this.selectedChannelEmitter,
-            this.listOrSelectionEmitter,
-            this.channelLockedEmitter
+            this.channelDeletedEmitter,
+            this.channelLockedEmitter,
+            this.selectedChannelChangedEmitter,
+            this.onChannelAdded(({ name }) => this.registerListener(this.getChannel(name)),
+                this.onChannelDeleted(({ name }) => {
+                    if (this.selectedChannel && this.selectedChannel.name === name) {
+                        this.selectedChannel = this.getVisibleChannels()[0];
+                    }
+                }))
         ]);
         this.getChannels().forEach(this.registerListener.bind(this));
-        this.toDispose.push(this.onChannelAdded(channel => {
-            this.listOrSelectionEmitter.fire(undefined);
-            this.registerListener(channel);
-        }));
-        this.toDispose.push(this.onChannelDelete(event => {
-            this.listOrSelectionEmitter.fire(undefined);
-            if (this.selectedChannel && this.selectedChannel.name === event.channelName) {
-                this.selectedChannel = this.getVisibleChannels()[0];
-            }
-        }));
     }
 
     registerCommands(registry: CommandRegistry): void {
@@ -183,7 +178,7 @@ export class OutputChannelManager implements FrontendApplicationContribution, Co
         if (toDispose) {
             toDispose.dispose();
         }
-        this.channelDeleteEmitter.fire({ channelName: name });
+        this.channelDeletedEmitter.fire({ name });
     }
 
     getChannels(): OutputChannel[] {
@@ -199,13 +194,13 @@ export class OutputChannelManager implements FrontendApplicationContribution, Co
     }
 
     get selectedChannel(): OutputChannel | undefined {
-        return this.selectedChannelValue;
+        return this._selectedChannel;
     }
 
     set selectedChannel(channel: OutputChannel | undefined) {
-        this.selectedChannelValue = channel;
-        this.selectedChannelEmitter.fire(undefined);
-        this.listOrSelectionEmitter.fire(undefined);
+        this._selectedChannel = channel;
+        const name = this._selectedChannel ? this._selectedChannel.name : undefined;
+        this.selectedChannelChangedEmitter.fire({ name });
     }
 
     toggleScrollLock(channel: OutputChannel | undefined = this.selectedChannel): void {

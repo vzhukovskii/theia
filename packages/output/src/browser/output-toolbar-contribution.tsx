@@ -33,7 +33,7 @@ export class OutputToolbarContribution implements TabBarToolbarContribution {
             id: 'channels',
             render: () => this.renderChannelSelector(),
             isVisible: widget => widget instanceof OutputWidget,
-            onDidChange: this.outputChannelManager.onListOrSelectionChange
+            onDidChange: this.outputChannelManager.onSelectedChannelChanged
         });
         toolbarRegistry.registerItem({
             id: OutputCommands.CLEAR__SELECTED.id,
@@ -101,9 +101,10 @@ class ScrollLockToolbarItem extends React.Component<ScrollLockToolbarItem.Props,
     componentDidMount(): void {
         this.toDispose.pushAll([
             // Update when the selected channel changes.
-            this.manager.onSelectedChannelChange(() => this.setState({ lockedChannels: this.state.lockedChannels })),
+            this.manager.onSelectedChannelChanged(() => this.setState({ lockedChannels: this.state.lockedChannels })),
             // Update when the selected channel's scroll-lock state changes.
-            this.manager.onLockChange(({ name, isLocked }) => {
+            this.manager.onChannelLocked(({ name }) => {
+                const isLocked = this.manager.getChannel(name).isLocked;
                 const lockedChannels = this.state.lockedChannels.slice();
                 if (isLocked) {
                     lockedChannels.push(name);
