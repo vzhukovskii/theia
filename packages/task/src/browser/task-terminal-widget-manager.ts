@@ -100,7 +100,7 @@ export class TaskTerminalWidgetManager {
         });
 
         this.terminalService.onDidCreateTerminal(async (widget: TerminalWidget) => {
-            console.log('************************** TASK terminal manager *** onDidCreateTerminal ', widget);
+            console.error('************************** TASK terminal manager *** onDidCreateTerminal ', new Date().valueOf());
             const terminal = widget;
             if (terminal) {
                 console.log('*** TASK terminal manager *** onDidCreateTerminal *** terminal found ');
