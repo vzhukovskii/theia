@@ -14,15 +14,20 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
+import { injectable } from 'inversify';
 import { MonacoWorkspace } from '@theia/monaco/lib/browser/monaco-workspace';
 import { MonacoEditorModel } from '@theia/monaco/lib/browser/monaco-editor-model';
-import { injectable } from 'inversify';
+import { OutputUri } from '../common/output-uri';
 
 @injectable()
 export class OutputWorkspace extends MonacoWorkspace {
 
     protected openEditorIfDirty(model: MonacoEditorModel): void {
-        // NOOP
+        if (OutputUri.is(model.uri.toString())) {
+            // NOOP
+            return;
+        }
+        super.openEditorIfDirty(model);
     }
 
 }

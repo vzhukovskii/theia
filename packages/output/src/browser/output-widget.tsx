@@ -16,16 +16,16 @@
 
 import '../../src/browser/style/output.css';
 import { inject, injectable, postConstruct } from 'inversify';
-import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
-import { Message, BaseWidget, DockPanel, Widget, MessageLoop, /* MessageLoop, Widget */ } from '@theia/core/lib/browser';
-import { MonacoEditorProvider } from '@theia/monaco/lib/browser/monaco-editor-provider';
-import { OutputChannelManager, OutputChannel } from '../common/output-channel';
-import { OutputUri } from '../common/output-uri';
-// import { EditorWidget } from '@theia/editor/lib/browser';
-import { EditorWidget } from '@theia/editor/lib/browser';
-import { SelectionService } from '@theia/core/lib/common/selection-service';
-import { IDragEvent } from '@phosphor/dragdrop';
 import { toArray } from '@phosphor/algorithm';
+import { IDragEvent } from '@phosphor/dragdrop';
+import { EditorWidget } from '@theia/editor/lib/browser';
+import { MonacoEditor } from '@theia/monaco/lib/browser/monaco-editor';
+import { SelectionService } from '@theia/core/lib/common/selection-service';
+import { MonacoEditorProvider } from '@theia/monaco/lib/browser/monaco-editor-provider';
+import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
+import { Message, BaseWidget, DockPanel, Widget, MessageLoop } from '@theia/core/lib/browser';
+import { OutputUri } from '../common/output-uri';
+import { OutputChannelManager, OutputChannel } from '../common/output-channel';
 
 @injectable()
 export class OutputWidget extends BaseWidget {
@@ -61,7 +61,10 @@ export class OutputWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
-        this.toDispose.push(this.outputChannelManager.onSelectedChannelChanged(this.onSelectedChannelChanged.bind(this)));
+        this.toDispose.pushAll([
+            this.outputChannelManager.onSelectedChannelChanged(this.onSelectedChannelChanged.bind(this)),
+            this.toDisposeOnSelectedChannelChanged
+        ]);
     }
 
     protected async onSelectedChannelChanged(): Promise<void> {
@@ -115,22 +118,27 @@ export class OutputWidget extends BaseWidget {
     }
 
     selectAll(): void {
-        // const model = this.editor.getModel();
-        // if (model) {
-        //     const endLine = model.getLineCount();
-        //     const endCharacter = model.getLineMaxColumn(endLine);
-        //     this.editor.setSelection(new monaco.Range(1, 1, endLine, endCharacter));
-        // }
+        const editor = this.editor;
+        if (editor) {
+            const model = editor.getControl().getModel();
+            if (model) {
+                const endLine = model.getLineCount();
+                const endCharacter = model.getLineMaxColumn(endLine);
+                editor.getControl().setSelection(new monaco.Range(1, 1, endLine, endCharacter));
+            }
+        }
     }
 
     protected revealLastLine(): void {
-        // if (this.editorWidget) {
-        //     this.editorWidget.editor.refresh();
-        //     this.editorWidget.editor.resizeToFit();
-        // }
-        // const lineNumber = this.model.getLineCount();
-        // const column = this.model.getLineMaxColumn(lineNumber);
-        // this.editor.revealPosition({ lineNumber, column }, monaco.editor.ScrollType.Smooth);
+        const editor = this.editor;
+        if (editor) {
+            const model = editor.getControl().getModel();
+            if (model) {
+                const lineNumber = model.getLineCount();
+                const column = model.getLineMaxColumn(lineNumber);
+                editor.getControl().revealPosition({ lineNumber, column }, monaco.editor.ScrollType.Smooth);
+            }
+        }
     }
 
     private get selectedChannel(): OutputChannel | undefined {
@@ -144,6 +152,17 @@ export class OutputWidget extends BaseWidget {
         const { name } = this.selectedChannel;
         const editor = await this.editorProvider.get(OutputUri.create(name));
         return new EditorWidget(editor, this.selectionService);
+    }
+
+    private get editor(): MonacoEditor | undefined {
+        for (const widget of toArray(this.editorContainer.children())) {
+            if (widget instanceof EditorWidget) {
+                if (widget.editor instanceof MonacoEditor) {
+                    return widget.editor;
+                }
+            }
+        }
+        return undefined;
     }
 
 }
@@ -167,4 +186,5 @@ class NoopDragOverDockPanel extends DockPanel {
             event.dropAction = 'none';
         };
     }
+
 }
