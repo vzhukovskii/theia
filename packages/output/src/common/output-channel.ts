@@ -211,6 +211,12 @@ export class OutputChannelManager implements FrontendApplicationContribution, Co
     }
 }
 
+export enum OutputChannelSeverity {
+    Error = 1,
+    Warning = 2,
+    Info = 3
+}
+
 export class OutputChannel implements Disposable {
 
     private readonly visibilityChangeEmitter = new Emitter<{ visible: boolean }>();
@@ -244,9 +250,9 @@ export class OutputChannel implements Disposable {
         ]);
     }
 
-    append(text: string): void {
+    append(text: string, severity: OutputChannelSeverity = OutputChannelSeverity.Info): void {
         const line = this.model.getLineCount();
-        const column = this.model.getLineLength(line);
+        const column = this.model.getLineMaxColumn(line);
         const range = new monaco.Range(line, column, line, column);
         // TODO: use `pushEditOperations` instead? Do we need undo/redo support?
         // TODO: check if cursor position can be handled with the `textModel` only.
@@ -256,10 +262,20 @@ export class OutputChannel implements Disposable {
                 text
             }
         ]);
+        if (severity !== OutputChannelSeverity.Info) {
+            const inlineClassName = severity === OutputChannelSeverity.Error ? 'theia-output-error' : 'theia-output-warning';
+            const endLineNumber = this.model.getLineCount();
+            const endColumn = this.model.getLineMaxColumn(endLineNumber);
+            this.model.deltaDecorations([], [{
+                range: new monaco.Range(range.startLineNumber, range.startColumn, endLineNumber, endColumn), options: {
+                    inlineClassName
+                }
+            }]);
+        }
     }
 
-    appendLine(line: string): void {
-        this.append(`${line}${this.model.getEOL()}`);
+    appendLine(line: string, severity: OutputChannelSeverity = OutputChannelSeverity.Info): void {
+        this.append(`${line}${this.model.getEOL()}`, severity);
         // TODO: do not forget this! Maybe, we can remove text form the start of the model to support clipping.
         // const maxChannelHistory = this.preferences['output.maxChannelHistory'];
         // if (this.lines.length > maxChannelHistory) {

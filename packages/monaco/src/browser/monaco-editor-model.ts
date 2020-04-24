@@ -14,9 +14,11 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
+import { inject, injectable } from 'inversify';
 import { Position } from 'vscode-languageserver-types';
 import { TextDocumentSaveReason, TextDocumentContentChangeEvent } from 'vscode-languageserver-protocol';
 import { MonacoToProtocolConverter, ProtocolToMonacoConverter } from 'monaco-languageclient';
+import { MaybePromise } from '@theia/core/src/common';
 import { TextEditorDocument } from '@theia/editor/lib/browser';
 import { DisposableCollection, Disposable } from '@theia/core/lib/common/disposable';
 import { Emitter, Event } from '@theia/core/lib/common/event';
@@ -40,6 +42,21 @@ export interface WillSaveMonacoModelEvent {
 export interface MonacoModelContentChangedEvent {
     readonly model: MonacoEditorModel;
     readonly contentChanges: TextDocumentContentChangeEvent[];
+}
+
+@injectable()
+export class MonacoEditorModelFactory {
+
+    @inject(MonacoToProtocolConverter)
+    protected readonly m2p: MonacoToProtocolConverter;
+
+    @inject(ProtocolToMonacoConverter)
+    protected readonly p2m: ProtocolToMonacoConverter;
+
+    createModel(resource: Resource, options?: { encoding?: string | undefined }): MaybePromise<MonacoEditorModel> {
+        return new MonacoEditorModel(resource, this.m2p, this.p2m, options);
+    }
+
 }
 
 export class MonacoEditorModel implements ITextEditorModel, TextEditorDocument {

@@ -19,7 +19,7 @@ import { bindDynamicLabelProvider } from './label/sample-dynamic-label-provider-
 import { bindSampleUnclosableView } from './view/sample-unclosable-view-contribution';
 import { bindSampleOutputChannelWithSeverity } from './output/sample-output-channel-with-severity';
 import { MessageService, CommandRegistry, CommandContribution, Disposable, DisposableCollection } from '@theia/core';
-import { OutputChannelManager, OutputChannel } from '@theia/output/lib/common/output-channel';
+import { OutputChannelManager, OutputChannel, OutputChannelSeverity } from '@theia/output/lib/common/output-channel';
 
 export default new ContainerModule(bind => {
     bindDynamicLabelProvider(bind);
@@ -66,7 +66,7 @@ class SampleOutputChannelsCommandContribution implements CommandContribution {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private appendLineTo(channelName: string, what: any): void {
-        this.getChannel(channelName).appendLine(`[${channelName}]: ${what}`);
+        this.getChannel(channelName).appendLine(`[${channelName}]: ${what}`, OutputChannelSeverity.Error);
     }
 
     private getChannel(channelName: string): OutputChannel {

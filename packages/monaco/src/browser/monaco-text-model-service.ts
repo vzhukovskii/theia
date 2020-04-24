@@ -15,11 +15,10 @@
  ********************************************************************************/
 
 import { inject, injectable } from 'inversify';
-import { MonacoToProtocolConverter, ProtocolToMonacoConverter } from 'monaco-languageclient';
 import URI from '@theia/core/lib/common/uri';
 import { ResourceProvider, ReferenceCollection, Event } from '@theia/core';
 import { EditorPreferences, EditorPreferenceChange } from '@theia/editor/lib/browser';
-import { MonacoEditorModel } from './monaco-editor-model';
+import { MonacoEditorModel, MonacoEditorModelFactory } from './monaco-editor-model';
 
 @injectable()
 export class MonacoTextModelService implements monaco.editor.ITextModelService {
@@ -34,11 +33,8 @@ export class MonacoTextModelService implements monaco.editor.ITextModelService {
     @inject(EditorPreferences)
     protected readonly editorPreferences: EditorPreferences;
 
-    @inject(MonacoToProtocolConverter)
-    protected readonly m2p: MonacoToProtocolConverter;
-
-    @inject(ProtocolToMonacoConverter)
-    protected readonly p2m: ProtocolToMonacoConverter;
+    @inject(MonacoEditorModelFactory)
+    protected modelFactory: MonacoEditorModelFactory;
 
     get models(): MonacoEditorModel[] {
         return this._models.values();
@@ -59,7 +55,8 @@ export class MonacoTextModelService implements monaco.editor.ITextModelService {
     protected async loadModel(uri: URI): Promise<MonacoEditorModel> {
         await this.editorPreferences.ready;
         const resource = await this.resourceProvider(uri);
-        const model = await (new MonacoEditorModel(resource, this.m2p, this.p2m, { encoding: this.editorPreferences.get('files.encoding') }).load());
+        const model = await this.modelFactory.createModel(resource, { encoding: this.editorPreferences.get('files.encoding') });
+        await model.load();
         this.updateModel(model);
         model.textEditorModel.onDidChangeLanguage(() => this.updateModel(model));
         const disposable = this.editorPreferences.onPreferenceChanged(change => this.updateModel(model, change));

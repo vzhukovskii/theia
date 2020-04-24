@@ -204,6 +204,7 @@ export class MonacoEditorProvider {
     protected get preferencePrefixes(): string[] {
         return ['editor.'];
     }
+
     protected async createMonacoEditor(uri: URI, override: IEditorOverrideServices, toDispose: DisposableCollection): Promise<MonacoEditor> {
         const model = await this.getModel(uri, toDispose);
         const options = this.createMonacoEditorOptions(model);
@@ -217,12 +218,14 @@ export class MonacoEditorProvider {
         editor.document.onWillSaveModel(event => event.waitUntil(this.formatOnSave(editor, event)));
         return editor;
     }
+
     protected createMonacoEditorOptions(model: MonacoEditorModel): MonacoEditor.IOptions {
         const options = this.createOptions(this.preferencePrefixes, model.uri, model.languageId);
         options.model = model.textEditorModel;
         options.readOnly = model.readOnly;
         return options;
     }
+
     protected updateMonacoEditorOptions(editor: MonacoEditor, event?: EditorPreferenceChange): void {
         if (event) {
             const preferenceName = event.preferenceName;
@@ -257,6 +260,7 @@ export class MonacoEditorProvider {
     protected get diffPreferencePrefixes(): string[] {
         return [...this.preferencePrefixes, 'diffEditor.'];
     }
+
     protected async createMonacoDiffEditor(uri: URI, override: IEditorOverrideServices, toDispose: DisposableCollection): Promise<MonacoDiffEditor> {
         const [original, modified] = DiffUris.decode(uri);
 
@@ -280,12 +284,14 @@ export class MonacoEditorProvider {
         toDispose.push(editor.onLanguageChanged(() => this.updateMonacoDiffEditorOptions(editor)));
         return editor;
     }
+
     protected createMonacoDiffEditorOptions(original: MonacoEditorModel, modified: MonacoEditorModel): MonacoDiffEditor.IOptions {
         const options = this.createOptions(this.diffPreferencePrefixes, modified.uri, modified.languageId);
         options.originalEditable = !original.readOnly;
         options.readOnly = modified.readOnly;
         return options;
     }
+
     protected updateMonacoDiffEditorOptions(editor: MonacoDiffEditor, event?: EditorPreferenceChange, resourceUri?: string): void {
         if (event) {
             const preferenceName = event.preferenceName;
@@ -315,6 +321,7 @@ export class MonacoEditorProvider {
         this.doSetOption(options, value, optionName.split('.'));
         return options;
     }
+
     protected toOptionName(preferenceName: string, prefixes: string[]): string {
         for (const prefix of prefixes) {
             if (preferenceName.startsWith(prefix)) {
@@ -323,6 +330,7 @@ export class MonacoEditorProvider {
         }
         return preferenceName;
     }
+
     protected doSetOption(obj: { [name: string]: any }, value: any, names: string[], idx: number = 0): void {
         const name = names[idx];
         if (!obj[name]) {
@@ -424,6 +432,7 @@ export class MonacoEditorProvider {
             override.contextMenuService = {
                 showContextMenu: () => {/* no-op*/ }
             };
+            // TODO: use `MonacoEditorModelFactory` instead?
             const document = new MonacoEditorModel({
                 uri,
                 readContents: async () => '',

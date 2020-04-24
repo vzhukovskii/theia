@@ -20,6 +20,11 @@ export namespace OutputUri {
 
     export const SCHEME = 'output';
 
+    /**
+     * Unique URI of the empty, placeholder `Output` text-model.
+     */
+    export const EMPTY = create('empty-eca3b566-4eb4-4456-88b4-e8a59d1d7a58');
+
     export function is(uri: string | URI): boolean {
         if (uri instanceof URI) {
             return uri.scheme === SCHEME;

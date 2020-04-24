@@ -17,8 +17,15 @@
 import '../../src/browser/style/output.css';
 import { inject, injectable, postConstruct } from 'inversify';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
-import { Message, BaseWidget, /* MessageLoop, Widget */ } from '@theia/core/lib/browser';
+import { Message, BaseWidget, DockPanel, Widget, MessageLoop, /* MessageLoop, Widget */ } from '@theia/core/lib/browser';
+import { MonacoEditorProvider } from '@theia/monaco/lib/browser/monaco-editor-provider';
 import { OutputChannelManager, OutputChannel } from '../common/output-channel';
+import { OutputUri } from '../common/output-uri';
+// import { EditorWidget } from '@theia/editor/lib/browser';
+import { EditorWidget } from '@theia/editor/lib/browser';
+import { SelectionService } from '@theia/core/lib/common/selection-service';
+import { IDragEvent } from '@phosphor/dragdrop';
+import { toArray } from '@phosphor/algorithm';
 
 @injectable()
 export class OutputWidget extends BaseWidget {
@@ -28,9 +35,15 @@ export class OutputWidget extends BaseWidget {
     @inject(OutputChannelManager)
     protected readonly outputChannelManager: OutputChannelManager;
 
+    @inject(MonacoEditorProvider)
+    protected readonly editorProvider: MonacoEditorProvider;
+
+    @inject(SelectionService)
+    protected readonly selectionService: SelectionService;
+
+    protected editorContainer: DockPanel;
+
     protected readonly toDisposeOnSelectedChannelChanged = new DisposableCollection();
-    protected readonly editor: monaco.editor.IStandaloneCodeEditor;
-    protected readonly emptyModel: monaco.editor.ITextModel;
 
     constructor() {
         super();
@@ -41,45 +54,58 @@ export class OutputWidget extends BaseWidget {
         this.title.closable = true;
         this.addClass('theia-output');
         this.node.tabIndex = 0;
-        this.editor = monaco.editor.create(this.node, this.editorOptions());
-        this.emptyModel = monaco.editor.createModel('<No output yet>', 'plaintext');
-        this.toDispose.push(Disposable.create(() => this.editor.dispose()));
+        this.editorContainer = new NoopDragOverDockPanel({ spacing: 0, mode: 'single-document' });
+        this.editorContainer.addClass('editor-container');
+        this.editorContainer.node.tabIndex = -1;
     }
 
     @postConstruct()
     protected init(): void {
         this.toDispose.push(this.outputChannelManager.onSelectedChannelChanged(this.onSelectedChannelChanged.bind(this)));
-        this.onSelectedChannelChanged();
     }
 
-    protected onSelectedChannelChanged(): void {
+    protected async onSelectedChannelChanged(): Promise<void> {
         this.toDisposeOnSelectedChannelChanged.dispose();
-        // If there is a selected channel but it is empty, we have to listen on to the first changes
-        // and replace the editor's `emptyModel` with the currently selected channel's text model.
         const { selectedChannel } = this;
-        if (selectedChannel && !selectedChannel.model.getValue()) {
-            let toDisposeOnContentChange: Disposable | undefined = undefined;
-            toDisposeOnContentChange = selectedChannel.onContentChange(() => {
-                if (selectedChannel.model.getValue() && toDisposeOnContentChange) {
-                    toDisposeOnContentChange.dispose();
-                }
-                this.editor.setModel(this.model);
-            });
-            this.toDisposeOnSelectedChannelChanged.push(toDisposeOnContentChange);
+        if (selectedChannel) {
+            const widget = await this.createEditorWidget();
+            if (widget) {
+                this.editorContainer.addWidget(widget);
+                this.toDisposeOnSelectedChannelChanged.pushAll([
+                    Disposable.create(() => widget.close()),
+                    selectedChannel.onContentChange(() => {
+                        if (!selectedChannel.isLocked) {
+                            this.revealLastLine();
+                        }
+                    })
+                ]);
+            }
         }
-        this.editor.setModel(this.model);
-        this.editor.layout(undefined);
     }
 
-    protected onAfterAttach(msg: Message): void {
-        super.onAfterAttach(msg);
-        this.editor.layout(undefined);
+    protected onAfterAttach(message: Message): void {
+        super.onAfterAttach(message);
+        Widget.attach(this.editorContainer, this.node);
+        this.toDisposeOnDetach.push(Disposable.create(() => Widget.detach(this.editorContainer)));
     }
 
     protected onActivateRequest(message: Message): void {
         super.onActivateRequest(message);
-        this.editor.layout(undefined);
-        this.editor.focus();
+        if (this.selectedChannel) {
+            for (const widget of toArray(this.editorContainer.widgets())) {
+                MessageLoop.sendMessage(widget, Widget.Msg.ActivateRequest);
+            }
+        } else {
+            this.node.focus();
+        }
+    }
+
+    protected onResize(message: Widget.ResizeMessage): void {
+        super.onResize(message);
+        MessageLoop.sendMessage(this.editorContainer, Widget.ResizeMessage.UnknownSize);
+        for (const widget of toArray(this.editorContainer.widgets())) {
+            MessageLoop.sendMessage(widget, Widget.ResizeMessage.UnknownSize);
+        }
     }
 
     clear(): void {
@@ -89,42 +115,35 @@ export class OutputWidget extends BaseWidget {
     }
 
     selectAll(): void {
-        const model = this.editor.getModel();
-        if (model) {
-            const endLine = model.getLineCount();
-            const endCharacter = model.getLineLastNonWhitespaceColumn(endLine);
-            this.editor.setSelection(new monaco.Range(1, 1, endLine, endCharacter));
-        }
+        // const model = this.editor.getModel();
+        // if (model) {
+        //     const endLine = model.getLineCount();
+        //     const endCharacter = model.getLineMaxColumn(endLine);
+        //     this.editor.setSelection(new monaco.Range(1, 1, endLine, endCharacter));
+        // }
     }
 
-    protected editorOptions(): monaco.editor.IEditorOptions {
-        return {
-            overviewRulerLanes: 3,
-            lineNumbersMinChars: 3,
-            fixedOverflowWidgets: true,
-            wordWrap: 'on',
-            lineNumbers: 'off',
-            glyphMargin: false,
-            lineDecorationsWidth: 20,
-            rulers: [],
-            folding: false,
-            scrollBeyondLastLine: false,
-            readOnly: true,
-            renderLineHighlight: 'none',
-            minimap: { enabled: false },
-        };
+    protected revealLastLine(): void {
+        // if (this.editorWidget) {
+        //     this.editorWidget.editor.refresh();
+        //     this.editorWidget.editor.resizeToFit();
+        // }
+        // const lineNumber = this.model.getLineCount();
+        // const column = this.model.getLineMaxColumn(lineNumber);
+        // this.editor.revealPosition({ lineNumber, column }, monaco.editor.ScrollType.Smooth);
     }
 
     private get selectedChannel(): OutputChannel | undefined {
         return this.outputChannelManager.selectedChannel;
     }
 
-    private get model(): monaco.editor.ITextModel {
-        const { selectedChannel } = this;
-        if (!selectedChannel || !selectedChannel.model.getValue()) {
-            return this.emptyModel;
+    private async createEditorWidget(): Promise<EditorWidget | undefined> {
+        if (!this.selectedChannel) {
+            return undefined;
         }
-        return selectedChannel.model;
+        const { name } = this.selectedChannel;
+        const editor = await this.editorProvider.get(OutputUri.create(name));
+        return new EditorWidget(editor, this.selectionService);
     }
 
 }
@@ -133,3 +152,19 @@ export class OutputWidget extends BaseWidget {
  * @deprecated Use `OutputWidget.ID` instead.
  */
 export const OUTPUT_WIDGET_KIND = OutputWidget.ID;
+
+/**
+ * Customized `DockPanel` that does not allow dropping widgets into it.
+ * Intercepts `'p-dragover'` events, and sets the desired drop action to `'none'`.
+ */
+class NoopDragOverDockPanel extends DockPanel {
+
+    constructor(options?: DockPanel.IOptions) {
+        super(options);
+        NoopDragOverDockPanel.prototype['_evtDragOver'] = (event: IDragEvent) => {
+            event.preventDefault();
+            event.stopPropagation();
+            event.dropAction = 'none';
+        };
+    }
+}
