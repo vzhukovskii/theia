@@ -32,17 +32,16 @@ export class OutputWidget extends BaseWidget {
 
     static readonly ID = 'outputView';
 
-    @inject(OutputChannelManager)
-    protected readonly outputChannelManager: OutputChannelManager;
+    @inject(SelectionService)
+    protected readonly selectionService: SelectionService;
 
     @inject(MonacoEditorProvider)
     protected readonly editorProvider: MonacoEditorProvider;
 
-    @inject(SelectionService)
-    protected readonly selectionService: SelectionService;
+    @inject(OutputChannelManager)
+    protected readonly outputChannelManager: OutputChannelManager;
 
-    protected editorContainer: DockPanel;
-
+    protected readonly editorContainer: DockPanel;
     protected readonly toDisposeOnSelectedChannelChanged = new DisposableCollection();
 
     constructor() {
@@ -68,8 +67,16 @@ export class OutputWidget extends BaseWidget {
     }
 
     protected async onSelectedChannelChanged(): Promise<void> {
-        this.toDisposeOnSelectedChannelChanged.dispose();
         const { selectedChannel } = this;
+        const editor = this.editor;
+        if (selectedChannel && editor) {
+            // If the input is the current one, do nothing.
+            const model = editor.getControl().getModel();
+            if (model && model.uri.toString() === selectedChannel.model.uri.toString()) {
+                return;
+            }
+        }
+        this.toDisposeOnSelectedChannelChanged.dispose();
         if (selectedChannel) {
             const widget = await this.createEditorWidget();
             if (widget) {
