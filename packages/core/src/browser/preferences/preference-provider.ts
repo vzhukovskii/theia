@@ -16,6 +16,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import debounce = require('lodash.debounce');
 import { injectable } from 'inversify';
 import { JSONExt, JSONValue } from '@phosphor/coreutils/lib/json';
 import URI from '../../common/uri';
@@ -58,21 +59,33 @@ export abstract class PreferenceProvider implements Disposable {
         this.toDispose.dispose();
     }
 
+    protected deferredChanges: PreferenceProviderDataChanges | undefined;
+
     /**
      * Informs the listeners that one or more preferences of this provider are changed.
      * The listeners are able to find what was changed from the emitted event.
      */
     protected emitPreferencesChangedEvent(changes: PreferenceProviderDataChanges | PreferenceProviderDataChange[]): void {
+        if (!this.deferredChanges) {
+            this.deferredChanges = {};
+        }
         if (Array.isArray(changes)) {
-            const prefChanges: PreferenceProviderDataChanges = {};
             for (const change of changes) {
-                prefChanges[change.preferenceName] = change;
+                this.deferredChanges[change.preferenceName] = change;
             }
-            this.onDidPreferencesChangedEmitter.fire(prefChanges);
         } else {
+            this.deferredChanges = Object.assign(this.deferredChanges, changes);
+        }
+        this.fireDidPreferencesChanged();
+    }
+
+    protected fireDidPreferencesChanged = debounce(() => {
+        const changes = this.deferredChanges;
+        this.deferredChanges = undefined;
+        if (changes) {
             this.onDidPreferencesChangedEmitter.fire(changes);
         }
-    }
+    });
 
     get<T>(preferenceName: string, resourceUri?: string): T | undefined {
         return this.resolve<T>(preferenceName, resourceUri).value;
