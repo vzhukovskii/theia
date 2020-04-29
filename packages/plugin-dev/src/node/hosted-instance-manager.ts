@@ -131,7 +131,6 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
 
         let command: string[];
         let processOptions: cp.SpawnOptions;
-        console.log('doRun 1 processOptions: ' + JSON.stringify(processOptions, undefined, 2));
         if (pluginUri.scheme === 'file') {
             processOptions = { ...PROCESS_OPTIONS };
             // get filesystem path that work cross operating systems
@@ -139,7 +138,7 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
 
             // Disable all the other plugins on this instance
             processOptions.env.THEIA_PLUGINS = '';
-            console.log('doRun 2 processOptions: ' + JSON.stringify(processOptions, undefined, 2));
+            console.log('doRun processOptions: ' + JSON.stringify(processOptions, undefined, 2));
             command = await this.getStartCommand(port, debugConfig);
             console.log('doRun command: ' + JSON.stringify(command, undefined, 2));
         } else {
