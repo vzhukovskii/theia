@@ -309,7 +309,7 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
 
     protected runHostedPluginTheiaInstance(command: string[], options: cp.SpawnOptions): Promise<URI> {
         console.log('runHostedPluginTheiaInstance call');
-        console.log('runHostedPluginTheiaInstance args: command: ' + JSON.stringify(command, undefined, 2) + ', options: ' + JSON.stringify(options, undefined, 2))
+        console.log('runHostedPluginTheiaInstance args: command: ' + JSON.stringify(command, undefined, 2) + ', options: ' + JSON.stringify(options, undefined, 2));
         this.isPluginRunning = true;
         return new Promise((resolve, reject) => {
             let started = false;
