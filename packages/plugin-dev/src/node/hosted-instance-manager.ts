@@ -122,13 +122,16 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
     }
 
     private async doRun(pluginUri: URI, port?: number, debugConfig?: DebugConfiguration): Promise<URI> {
+        console.log('doRun args: pluginUri: ' + pluginUri + ', port: ' + port);
         if (this.isPluginRunning) {
+            console.log('doRun this.isPluginRunning: ' + this.isPluginRunning);
             this.hostedPluginSupport.sendLog({ data: 'Hosted plugin instance is already running.', type: LogType.Info });
             throw new Error('Hosted instance is already running.');
         }
 
         let command: string[];
         let processOptions: cp.SpawnOptions;
+        console.log('doRun 1 processOptions: ' + JSON.stringify(processOptions, undefined, 2));
         if (pluginUri.scheme === 'file') {
             processOptions = { ...PROCESS_OPTIONS };
             // get filesystem path that work cross operating systems
@@ -136,13 +139,16 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
 
             // Disable all the other plugins on this instance
             processOptions.env.THEIA_PLUGINS = '';
+            console.log('doRun 2 processOptions: ' + JSON.stringify(processOptions, undefined, 2));
             command = await this.getStartCommand(port, debugConfig);
+            console.log('doRun command: ' + JSON.stringify(command, undefined, 2));
         } else {
             throw new Error('Not supported plugin location: ' + pluginUri.toString());
         }
 
         this.instanceUri = await this.postProcessInstanceUri(
             await this.runHostedPluginTheiaInstance(command, processOptions));
+        console.log('doRun instanceUri: ' + this.instanceUri);
         this.pluginUri = pluginUri;
         // disable redirect to grab the release
         this.instanceOptions = {
@@ -155,7 +161,9 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
     }
 
     terminate(): void {
+        console.log('terminate call');
         if (this.isPluginRunning) {
+            console.log('terminate run plugin');
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             processTree(this.hostedInstanceProcess.pid, (err: Error, children: Array<any>) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -186,6 +194,7 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
      * Checks that the `instanceUri` is responding before exiting method
      */
     public async checkInstanceUriReady(): Promise<void> {
+        console.log('checkInstanceUriReady call');
         return new Promise<void>((resolve, reject) => this.pingLoop(60, resolve, reject));
     }
 
@@ -216,7 +225,9 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
     private async ping(): Promise<boolean> {
         return new Promise<boolean>((resolve, reject) => {
             const url = this.instanceUri.toString();
+            console.log('ping url: ' + url);
             request.head(url, this.instanceOptions).on('response', res => {
+                console.log('ping response: ' + JSON.stringify(res, undefined, 2));
                 // Wait that the status is OK
                 if (res.statusCode === 200) {
                     resolve(true);
@@ -234,7 +245,7 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
         if (fs.existsSync(pckPath)) {
             const pck = require(pckPath);
             try {
-               return !!this.metadata.getScanner(pck);
+                return !!this.metadata.getScanner(pck);
             } catch (e) {
                 console.error(e);
                 return false;
@@ -288,19 +299,24 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
     }
 
     protected async postProcessInstanceUri(uri: URI): Promise<URI> {
+        console.log('AbstractHostedInstanceManager#postProcessInstanceUri uri: ' + JSON.stringify(uri, undefined, 2));
         return uri;
     }
 
     protected async postProcessInstanceOptions(options: object): Promise<object> {
+        console.log('AbstractHostedInstanceManager#postProcessInstanceOptions options: ' + JSON.stringify(options, undefined, 2));
         return options;
     }
 
     protected runHostedPluginTheiaInstance(command: string[], options: cp.SpawnOptions): Promise<URI> {
+        console.log('runHostedPluginTheiaInstance call');
+        console.log('runHostedPluginTheiaInstance args: command: ' + JSON.stringify(command, undefined, 2) + ', options: ' + JSON.stringify(options, undefined, 2))
         this.isPluginRunning = true;
         return new Promise((resolve, reject) => {
             let started = false;
             const outputListener = (data: string | Buffer) => {
                 const line = data.toString();
+                console.log('runHostedPluginTheiaInstance outputListener: ' + line);
                 const match = THEIA_INSTANCE_REGEX.exec(line);
                 if (match) {
                     this.hostedInstanceProcess.stdout.removeListener('data', outputListener);
@@ -318,11 +334,14 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
                 this.hostedPluginSupport.sendLog({ data: data.toString(), type: LogType.Info });
             });
             this.hostedInstanceProcess.stderr.addListener('data', data => {
+                console.log('runHostedPluginTheiaInstance stderr outputListener: ' + data.toString());
                 this.hostedPluginSupport.sendLog({ data: data.toString(), type: LogType.Error });
             });
 
             setTimeout(() => {
+                console.log('runHostedPluginTheiaInstance HOSTED_INSTANCE_START');
                 if (!started) {
+                    console.log('runHostedPluginTheiaInstance not started');
                     this.terminate();
                     this.isPluginRunning = false;
                     reject(new Error('Timeout.'));
@@ -366,6 +385,7 @@ export class NodeHostedPluginRunner extends AbstractHostedInstanceManager {
         for (const uriPostProcessor of this.uriPostProcessors.getContributions()) {
             uri = await uriPostProcessor.processUri(uri);
         }
+        console.log('NodeHostedPluginRunner#postProcessInstanceUri uri: ' + JSON.stringify(uri, undefined, 2));
         return uri;
     }
 
@@ -373,6 +393,7 @@ export class NodeHostedPluginRunner extends AbstractHostedInstanceManager {
         for (const uriPostProcessor of this.uriPostProcessors.getContributions()) {
             options = await uriPostProcessor.processOptions(options);
         }
+        console.log('NodeHostedPluginRunner#postProcessInstanceOptions options: ' + JSON.stringify(options, undefined, 2));
         return options;
     }
 
