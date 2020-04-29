@@ -234,6 +234,12 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
                     resolve(false);
                 }
             }).on('error', error => {
+                console.log('ping error: ' + JSON.stringify(error, undefined, 2));
+                console.log('ping error message: ' + error.message + ', name: ' + error.name + ', object: ' + error);
+                if (this.instanceUri.scheme === 'https') {
+                    this.instanceOptions = { ...this.instanceOptions, strictSSL: false };
+                    console.log('ping error, adding stringSSL property: ' + JSON.stringify(this.instanceOptions, undefined, 2));
+                }
                 resolve(false);
             });
         });
